@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>gromy-counter</title>
+    <link rel="stylesheet" href="../style.css">
+
+</head>
+<script type="module">
+
+    import { createStore } from '../redux/index.js'
+    import combineReducer from '../redux/utils/combineReducer.js'
+    import applyMiddleware from '../redux/utils/applyMiddleware.js'
+    import  {logger,asyncfunc}  from '../middleware/middleware.js'
+
+    let reducer = {
+        value: (state, action) => {
+            switch (action.type) {
+                case 'INCREMENT': return state + 1
+                case 'DECREMENT': return state - 1
+                case 'AMOUNT': return state + action.preload
+                default: return state
+            }
+        },
+        theme: (state, action) => {
+            switch (action.type) {
+                case 'CHANGTHEME': return action.preload
+                default: return state
+            }
+        },
+        position: (state, action) => {
+            switch (action.type) {
+                case 'CHANGPOSITION': return action.preload
+                default: return state
+            }
+        }
+    }
+
+    const store = createStore(
+        combineReducer(reducer),
+        {
+            value: 0,
+            position: {},
+            theme: {}
+        },
+        applyMiddleware(asyncfunc,logger)
+    )
+
+    const renderValue = function () {
+        document.getElementById('value').innerHTML = store.getState().value
+    }
+    const renderTheme = () => {
+        let width = store.getState().position.width
+        if (width > 300 || width < 0) {
+            return
+        }
+        let hues = Math.ceil(width / 300 * 255)
+        document.querySelector('.left').style.width = width + 'px'
+        document.querySelector('.hue').innerHTML = hues
+        document.querySelector('.page-wrap').style.color = `hsl(${hues}deg 73% 31%)`
+        let list = document.getElementsByClassName('btn')
+        for (let index = 0; index < list.length; index++) {
+            list[index].style.backgroundColor = `hsl(${hues}deg 100% 96%)`
+            list[index].style.borderColor = `hsl(${hues}deg 83% 80%)`
+        }
+        document.querySelector('.left').style.backgroundColor = `hsl(${hues}deg 100% 83%)`
+        document.querySelector('.dot').style.backgroundColor = `hsl(${hues}deg 100% 73%)`
+    }
+    store.subscribe(renderValue)
+    store.subscribe(renderTheme)
+
+
+
+    const nodeBind = (seclector, callback, event = 'click') => {
+        document.querySelector(seclector).addEventListener(event, callback)
+    }
+
+    nodeBind('.btn-increment', () => { store.dispatch({ type: 'INCREMENT' }) })
+    nodeBind('.btn-decrement', () => { store.dispatch({ type: 'DECREMENT' }) })
+    nodeBind('.increment-odd', () => {
+        if (store.getState().value % 2 === 0) {
+            store.dispatch({ type: 'INCREMENT' })
+        }
+    })
+    nodeBind('.increment-async', () => {
+        setTimeout(() => {
+            store.dispatch({ type: 'INCREMENT' })
+        }, 1000)
+    })
+    nodeBind('.add-amount', () => {
+        setTimeout(() => {
+            store.dispatch({ type: 'AMOUNT', preload: +document.querySelector('.amount').value })
+        }, 1000)
+    })
+    let dot = document.querySelector('.dot')
+    document.onmousemove = (e) => {
+        if (!store.getState().theme.isdrug) {
+            return
+        }
+        let dis = e.clientX - store.getState().position.lastPosition
+
+        store.dispatch({
+            type: 'CHANGPOSITION',
+            preload: {
+                width: store.getState().position.width + dis,
+                lastPosition: e.clientX
+            }
+        })
+
+    }
+
+
+
+    dot.onmousedown = (e) => {
+        store.dispatch({
+            type: 'CHANGPOSITION',
+            preload: {
+                width: document.querySelector('.left').offsetWidth,
+                lastPosition: e.clientX
+            }
+        })
+        store.dispatch({
+            type: 'CHANGTHEME',
+            preload: {
+                isdrug: true,
+
+            }
+        })
+
+    }
+    document.onmouseup = (e) => {
+        console.log('onmouseup')
+        store.dispatch({
+            type: 'CHANGTHEME',
+            preload: {
+                isdrug: false,
+                initialPos: 0
+            }
+        })
+    }
+</script>
+
+<body>
+    <div class="page-wrap">
+        <div class="title">格洛米 的 redux计数器</div>
+        <div class="val-wrap">
+            <div class="btn btn-increment"><span>+</span></div>
+            <div id="value" class="value">0</div>
+            <div class="btn btn-decrement"><span>-</span></div>
+        </div>
+        <div class="btn-wrap">
+            <input class="amount" type="text" value="7">
+            <div class="btn add-amount">Add Amount</div>
+            <div class="btn increment-odd">Add if odd</div>
+            <div class="btn increment-async">Add 1s after</div>
+        </div>
+
+        <div class="change-color">改变色相（0～255）<span class="hue">0</span>
+            <div class="slide-wrap">
+                <div class="left"></div>
+                <div class="dot"></div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
